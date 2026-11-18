@@ -9,7 +9,8 @@ const {
   deleteTestimonial,
   shareTestimonial,
   getSettings,
-  upsertSettings
+  upsertSettings,
+  getAnalytics
 } = require("../controllers/testimonialController");
 
 const router = express.Router();
@@ -21,6 +22,7 @@ router.get("/", listTestimonials);
 
 router.get("/settings", getSettings);
 router.post("/settings", upsertSettings);
+router.get("/analytics", getAnalytics);
 
 router.patch("/:testimonialId/status", updateStatus);
 router.post("/:testimonialId/share", shareTestimonial);

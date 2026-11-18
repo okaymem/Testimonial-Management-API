@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require("uuid");
 const Testimonial = require("../models/testimonial");
 const TestimonialSettings = require("../models/testimonialSettings");
-const { sendSuccess, sendError, STATUS_TRANSITIONS } = require("../lib/constants");
+const { sendSuccess, sendError, STATUS_TRANSITIONS, TESTIMONIAL_STATUSES } = require("../lib/constants");
 const {
   createTestimonialSchema,
   updateTestimonialSchema,
@@ -9,6 +9,7 @@ const {
   shareSchema,
   listQuerySchema,
   settingsSchema,
+  analyticsQuerySchema,
   parseOrError
 } = require("../validators/testimonial");
 
@@ -358,6 +359,74 @@ const upsertSettings = async (req, res) => {
   }
 };
 
+const getAnalytics = async (req, res) => {
+  try {
+    const parsed = parseOrError(analyticsQuerySchema, req.query || {});
+    if (parsed.error) {
+      return sendError(res, { code: 400, message: parsed.error });
+    }
+
+    const { startDate, endDate } = parsed.data || {};
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+      return sendError(res, { code: 400, message: "startDate must be before or equal to endDate" });
+    }
+
+    const match = { userId: req.user.userId, isDeleted: false };
+    if (startDate || endDate) {
+      match.createdAt = {};
+      if (startDate) match.createdAt.$gte = new Date(startDate);
+      if (endDate) match.createdAt.$lte = new Date(endDate);
+    }
+
+    const [result] = await Testimonial.aggregate([
+      { $match: match },
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          byStatus: [{ $group: { _id: "$status", count: { $sum: 1 } } }],
+          rating: [
+            { $match: { rating: { $ne: null } } },
+            { $group: { _id: null, avg: { $avg: "$rating" } } }
+          ]
+        }
+      }
+    ]);
+
+    const total = result && result.total[0] ? result.total[0].count : 0;
+    const byStatus = {};
+    for (const status of TESTIMONIAL_STATUSES) {
+      byStatus[status] = 0;
+    }
+    if (result && Array.isArray(result.byStatus)) {
+      for (const item of result.byStatus) {
+        if (item && item._id) {
+          byStatus[item._id] = item.count;
+        }
+      }
+    }
+
+    let averageRating = null;
+    if (result && result.rating[0] && result.rating[0].avg != null) {
+      averageRating = Math.round(result.rating[0].avg * 100) / 100;
+    }
+
+    return sendSuccess(res, {
+      code: 200,
+      message: "Data retrieved successfully",
+      data: {
+        overview: { total, byStatus, averageRating },
+        period: {
+          startDate: startDate ? new Date(startDate).toISOString() : null,
+          endDate: endDate ? new Date(endDate).toISOString() : null
+        }
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    return sendError(res, { code: 500, message: "Failed to retrieve analytics" });
+  }
+};
+
 module.exports = {
   createTestimonial,
   listTestimonials,
@@ -367,5 +436,6 @@ module.exports = {
   deleteTestimonial,
   shareTestimonial,
   getSettings,
-  upsertSettings
+  upsertSettings,
+  getAnalytics
 };
