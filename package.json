@@ -17,7 +17,8 @@
     "express": "^4.21.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.7.0",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "zod": "^4.6.7"
   },
   "directories": {
     "lib": "lib"
