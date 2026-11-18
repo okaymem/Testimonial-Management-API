@@ -7,7 +7,9 @@ const {
   updateTestimonial,
   updateStatus,
   deleteTestimonial,
-  shareTestimonial
+  shareTestimonial,
+  getSettings,
+  upsertSettings
 } = require("../controllers/testimonialController");
 
 const router = express.Router();
@@ -16,6 +18,9 @@ router.use(auth);
 
 router.post("/", createTestimonial);
 router.get("/", listTestimonials);
+
+router.get("/settings", getSettings);
+router.post("/settings", upsertSettings);
 
 router.patch("/:testimonialId/status", updateStatus);
 router.post("/:testimonialId/share", shareTestimonial);

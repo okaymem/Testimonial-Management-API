@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const Testimonial = require("../models/testimonial");
+const TestimonialSettings = require("../models/testimonialSettings");
 const { sendSuccess, sendError, STATUS_TRANSITIONS } = require("../lib/constants");
 const {
   createTestimonialSchema,
@@ -7,6 +8,7 @@ const {
   statusUpdateSchema,
   shareSchema,
   listQuerySchema,
+  settingsSchema,
   parseOrError
 } = require("../validators/testimonial");
 
@@ -283,6 +285,79 @@ const shareTestimonial = async (req, res) => {
   }
 };
 
+const getSettings = async (req, res) => {
+  try {
+    const settings = await TestimonialSettings.findOne({ userId: req.user.userId });
+    return sendSuccess(res, {
+      code: 200,
+      message: "Data retrieved successfully",
+      data: settings || null
+    });
+  } catch (error) {
+    console.error(error);
+    return sendError(res, { code: 500, message: "Failed to retrieve settings" });
+  }
+};
+
+const upsertSettings = async (req, res) => {
+  try {
+    const parsed = parseOrError(settingsSchema, req.body || {});
+    if (parsed.error) {
+      return sendError(res, { code: 400, message: parsed.error });
+    }
+
+    const updates = { ...parsed.data };
+    if (Object.keys(updates).length === 0) {
+      return sendError(res, { code: 400, message: "No valid fields provided for update" });
+    }
+
+    if (updates.contactConsent && typeof updates.contactConsent === "object") {
+      const set = { userId: req.user.userId };
+      for (const [key, value] of Object.entries(updates)) {
+        if (key === "contactConsent") continue;
+        set[key] = value;
+      }
+      if (Object.prototype.hasOwnProperty.call(updates.contactConsent, "enabled")) {
+        set["contactConsent.enabled"] = updates.contactConsent.enabled;
+      }
+      if (Object.prototype.hasOwnProperty.call(updates.contactConsent, "text")) {
+        set["contactConsent.text"] = updates.contactConsent.text;
+      }
+      const settings = await TestimonialSettings.findOneAndUpdate(
+        { userId: req.user.userId },
+        { $set: set },
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      );
+      return sendSuccess(res, {
+        code: 200,
+        message: "Settings saved successfully",
+        data: settings
+      });
+    }
+
+    const settings = await TestimonialSettings.findOneAndUpdate(
+      { userId: req.user.userId },
+      { $set: { userId: req.user.userId, ...updates } },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+
+    return sendSuccess(res, {
+      code: 200,
+      message: "Settings saved successfully",
+      data: settings
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const details = Object.values(error.errors || {})
+        .map((e) => e.message)
+        .join(", ");
+      return sendError(res, { code: 400, message: details || "Validation error" });
+    }
+    console.error(error);
+    return sendError(res, { code: 500, message: "Failed to save settings" });
+  }
+};
+
 module.exports = {
   createTestimonial,
   listTestimonials,
@@ -290,5 +365,7 @@ module.exports = {
   updateTestimonial,
   updateStatus,
   deleteTestimonial,
-  shareTestimonial
+  shareTestimonial,
+  getSettings,
+  upsertSettings
 };
