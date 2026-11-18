@@ -14,8 +14,7 @@ const signToken = (user) => {
 };
 
 const sanitizeUser = (user) => {
-  const obj = user.toObject ? user.toObject() : user;
-  const { password, _id, __v, ...safe } = obj;
+  const { password, _id, __v, ...safe } = user.toObject();
   return safe;
 };
 

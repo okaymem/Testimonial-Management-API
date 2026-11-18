@@ -1,27 +1,27 @@
 const express = require("express");
 const auth = require("../middleware/auth");
-const { sendError } = require("../lib/constants");
+const {
+  createTestimonial,
+  listTestimonials,
+  getTestimonial,
+  updateTestimonial,
+  updateStatus,
+  deleteTestimonial,
+  shareTestimonial
+} = require("../controllers/testimonialController");
 
 const router = express.Router();
 
 router.use(auth);
 
-const notImplemented = (req, res) => {
-  return sendError(res, { code: 501, message: "Not implemented" });
-};
+router.post("/", createTestimonial);
+router.get("/", listTestimonials);
 
-router.post("/", notImplemented);
-router.get("/", notImplemented);
+router.patch("/:testimonialId/status", updateStatus);
+router.post("/:testimonialId/share", shareTestimonial);
 
-router.get("/settings", notImplemented);
-router.post("/settings", notImplemented);
-router.get("/analytics", notImplemented);
-
-router.patch("/:testimonialId/status", notImplemented);
-router.post("/:testimonialId/share", notImplemented);
-
-router.get("/:testimonialId", notImplemented);
-router.put("/:testimonialId", notImplemented);
-router.delete("/:testimonialId", notImplemented);
+router.get("/:testimonialId", getTestimonial);
+router.put("/:testimonialId", updateTestimonial);
+router.delete("/:testimonialId", deleteTestimonial);
 
 module.exports = router;
