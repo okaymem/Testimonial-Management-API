@@ -199,6 +199,7 @@ Authorization: Bearer <token>
 |-------|----------|----------|
 | POST | `/api/testimonials` | Создание (требуется `customerName`) → 201 |
 | GET | `/api/testimonials` | Список (query: status, page, limit, sort) → 200 + пагинация |
+| GET | `/api/testimonials/search` | Поиск (q, даты, рейтинг, пагинация) → 200 + пагинация |
 | GET | `/api/testimonials/:id` | Получить один → 200 |
 | PUT | `/api/testimonials/:id` | Частичное обновление → 200 |
 | PATCH | `/api/testimonials/:id/status` | Смена статуса (строго: draft→recording→processing→completed→shared) → 200 |
@@ -269,6 +270,47 @@ Authorization: Bearer <token>
   }
 }
 ```
+
+#### Search
+**GET** `/api/testimonials/search`
+
+**Query параметры:**
+| Параметр | Тип | Дефолт | Описание |
+|----------|-----|--------|----------|
+| `q` | string | — | Текстовый поиск по `customerName` и `text` (case-insensitive, частичное совпадение) |
+| `createdAfter` | string (ISO) | — | Фильтр: создано не раньше даты |
+| `createdBefore` | string (ISO) | — | Фильтр: создано не позже даты |
+| `minRating` | integer (1-5) | — | Минимальный рейтинг |
+| `maxRating` | integer (1-5) | — | Максимальный рейтинг |
+| `page` | integer | `1` | Номер страницы |
+| `limit` | integer | `10` | Элементов на странице |
+| `sort` | string | `createdAt` | Поле сортировки (префикс `-` для DESC) |
+
+**Пример запроса:**
+```
+GET /api/testimonials/search?q=john&minRating=4&createdAfter=2025-01-01T00:00:00.000Z&page=1&limit=5
+```
+
+**Ответ (200):**
+```json
+{
+  "code": 200,
+  "status": "success",
+  "message": "Data retrieved successfully",
+  "data": [...],
+  "pagination": {
+    "total": 3,
+    "page": 1,
+    "limit": 5,
+    "pages": 1
+  }
+}
+```
+
+**Валидация:**
+- `createdAfter` не может быть больше `createdBefore`
+- `minRating` не может быть больше `maxRating`
+- `q` — опциональный, если не указан — поиск не применяется
 
 #### Update Status
 **PATCH** `/api/testimonials/:id/status`
@@ -423,7 +465,7 @@ draft → recording → processing → completed → shared
 | № | Задача | Статус |
 |---|--------|--------|
 | 1 | **Rate Limiting** на `/api/auth/*` (5 req/min/IP, 429 при превышении) | ✅ Выполнено |
-| 2 | Search (`GET /api/testimonials/search`) | ⏳ Планируется |
+| 2 | Search (`GET /api/testimonials/search`) | ✅ Выполнено |
 | 3 | Bulk Status (`POST /api/testimonials/bulk/status`) | ⏳ Планируется |
 | 4 | Export CSV (`GET /api/testimonials/export`) | ⏳ Планируется |
 | 5 | Тесты (Jest + mongodb-memory-server) | ⏳ Планируется |
@@ -443,14 +485,13 @@ draft → recording → processing → completed → shared
 | Метрика | Значение |
 |---------|----------|
 | **Затраченное время** | ~12 часов |
-| **Выполненные бонусные задачи** | 1 из 5 (Rate Limiting) |
+| **Выполненные бонусные задачи** | 2 из 5 (Rate Limiting, Search) |
 | **Тесты** | Заготовки созданы (`tests/`), требуют доработки setup |
 
 ### Что планируется сделать (остальные бонусы)
-1. **Search** — `GET /api/testimonials/search` с текстовым поиском, фильтрами по дате/рейтингу, пагинацией.
-2. **Bulk Status** — `POST /api/testimonials/bulk/status` с валидацией переходов для каждого ID и отчётом `{updated, failed, errors}`.
-3. **Export CSV** — `GET /api/testimonials/export` с заголовками, экранированием, фильтрами, `Content-Disposition: attachment`.
-4. **Тесты** — полный набор Jest тестов: статус-транзишены, auth middleware, CRUD эндпоинты, бонусные эндпоинты, in-memory MongoDB.
+1. **Bulk Status** — `POST /api/testimonials/bulk/status` с валидацией переходов для каждого ID и отчётом `{updated, failed, errors}`.
+2. **Export CSV** — `GET /api/testimonials/export` с заголовками, экранированием, фильтрами, `Content-Disposition: attachment`.
+3. **Тесты** — полный набор Jest тестов: статус-транзишены, auth middleware, CRUD эндпоинты, бонусные эндпоинты, in-memory MongoDB.
 
 ### Что можно улучшить в будущем
 - Атомарный счётчик `userId` (вместо `max+1`) для устранения гонок при одновременной регистрации.

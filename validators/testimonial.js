@@ -107,6 +107,61 @@ const listQuerySchema = z
   })
   .strip();
 
+const searchQuerySchema = z
+  .object({
+    q: z.string({ invalid_type_error: "q must be a string" }).trim().optional(),
+    createdAfter: z
+      .string({ invalid_type_error: "createdAfter must be a string" })
+      .datetime({ message: "createdAfter must be a valid ISO date string" })
+      .optional(),
+    createdBefore: z
+      .string({ invalid_type_error: "createdBefore must be a string" })
+      .datetime({ message: "createdBefore must be a valid ISO date string" })
+      .optional(),
+    minRating: z.coerce
+      .number({ invalid_type_error: "minRating must be a number" })
+      .int("minRating must be an integer")
+      .min(1, "minRating must be between 1 and 5")
+      .max(5, "minRating must be between 1 and 5")
+      .optional(),
+    maxRating: z.coerce
+      .number({ invalid_type_error: "maxRating must be a number" })
+      .int("maxRating must be an integer")
+      .min(1, "maxRating must be between 1 and 5")
+      .max(5, "maxRating must be between 1 and 5")
+      .optional(),
+    page: z.coerce
+      .number({ invalid_type_error: "page must be a number" })
+      .int("page must be an integer")
+      .min(1, "page must be at least 1")
+      .optional(),
+    limit: z.coerce
+      .number({ invalid_type_error: "limit must be a number" })
+      .int("limit must be an integer")
+      .min(1, "limit must be at least 1")
+      .optional(),
+    sort: z.string({ invalid_type_error: "sort must be a string" }).trim().optional()
+  })
+  .strip()
+  .refine(
+    (data) => {
+      if (data.createdAfter && data.createdBefore) {
+        return new Date(data.createdAfter) <= new Date(data.createdBefore);
+      }
+      return true;
+    },
+    { message: "createdAfter must be before or equal to createdBefore", path: ["createdAfter"] }
+  )
+  .refine(
+    (data) => {
+      if (data.minRating && data.maxRating) {
+        return data.minRating <= data.maxRating;
+      }
+      return true;
+    },
+    { message: "minRating must be less than or equal to maxRating", path: ["minRating"] }
+  );
+
 const contactConsentSchema = z
   .object({
     enabled: z.boolean({ invalid_type_error: "contactConsent.enabled must be a boolean" }).optional(),
@@ -167,6 +222,7 @@ module.exports = {
   statusUpdateSchema,
   shareSchema,
   listQuerySchema,
+  searchQuerySchema,
   settingsSchema,
   analyticsQuerySchema,
   parseOrError

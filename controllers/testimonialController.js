@@ -8,6 +8,7 @@ const {
   statusUpdateSchema,
   shareSchema,
   listQuerySchema,
+  searchQuerySchema,
   settingsSchema,
   analyticsQuerySchema,
   parseOrError
@@ -91,6 +92,62 @@ const listTestimonials = async (req, res) => {
   } catch (error) {
     console.error(error);
     return sendError(res, { code: 500, message: "Failed to retrieve testimonials" });
+  }
+};
+
+const searchTestimonials = async (req, res) => {
+  try {
+    const parsed = parseOrError(searchQuerySchema, req.query || {});
+    if (parsed.error) {
+      return sendError(res, { code: 400, message: parsed.error });
+    }
+
+    const { q, createdAfter, createdBefore, minRating, maxRating, sort } = parsed.data;
+    const page = parsed.data.page || 1;
+    const limit = parsed.data.limit || 10;
+
+    const filter = { userId: req.user.userId, isDeleted: false };
+
+    if (q && q.trim()) {
+      const regex = new RegExp(q.trim(), "i");
+      filter.$or = [
+        { customerName: regex },
+        { text: regex }
+      ];
+    }
+
+    if (createdAfter || createdBefore) {
+      filter.createdAt = {};
+      if (createdAfter) filter.createdAt.$gte = new Date(createdAfter);
+      if (createdBefore) filter.createdAt.$lte = new Date(createdBefore);
+    }
+
+    if (minRating || maxRating) {
+      filter.rating = {};
+      if (minRating) filter.rating.$gte = minRating;
+      if (maxRating) filter.rating.$lte = maxRating;
+    }
+
+    const sortField = sort || "createdAt";
+    const sortOption = { [sortField]: -1 };
+
+    const total = await Testimonial.countDocuments(filter);
+    const testimonials = await Testimonial.find(filter)
+      .sort(sortOption)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const pages = total === 0 ? 0 : Math.ceil(total / limit);
+
+    return sendSuccess(res, {
+      code: 200,
+      message: "Data retrieved successfully",
+      data: testimonials,
+      pagination: { total, page, limit, pages }
+    });
+  } catch (error) {
+    console.error(error);
+    return sendError(res, { code: 500, message: "Failed to search testimonials" });
   }
 };
 
@@ -430,6 +487,7 @@ const getAnalytics = async (req, res) => {
 module.exports = {
   createTestimonial,
   listTestimonials,
+  searchTestimonials,
   getTestimonial,
   updateTestimonial,
   updateStatus,

@@ -3,6 +3,7 @@ const auth = require("../middleware/auth");
 const {
   createTestimonial,
   listTestimonials,
+  searchTestimonials,
   getTestimonial,
   updateTestimonial,
   updateStatus,
@@ -19,6 +20,7 @@ router.use(auth);
 
 router.post("/", createTestimonial);
 router.get("/", listTestimonials);
+router.get("/search", searchTestimonials);
 
 router.get("/settings", getSettings);
 router.post("/settings", upsertSettings);
