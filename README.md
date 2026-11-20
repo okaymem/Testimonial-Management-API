@@ -562,7 +562,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 | 2 | Search (`GET /api/testimonials/search`) | ✅ Выполнено |
 | 3 | Bulk Status (`POST /api/testimonials/bulk/status`) | ✅ Выполнено |
 | 4 | Export CSV (`GET /api/testimonials/export`) | ✅ Выполнено |
-| 5 | Тесты (Jest + mongodb-memory-server) | ⏳ Планируется |
+| 5 | Тесты (Mocha + mongodb-memory-server) | ✅ Выполнено |
 
 ### Детали Rate Limiting (Бонус 1)
 - Библиотека: `express-rate-limit`
@@ -572,6 +572,18 @@ curl -H "Authorization: Bearer $TOKEN" \
 - Ответ при превышении: `429` с JSON `{ "code": 429, "status": "failure", "message": "Too many requests, please try again later" }`
 - Заголовки: `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
 
+### Детали тестов (Бонус 5)
+- **Фреймворк**: Mocha + Chai + Supertest
+- **БД для тестов**: `mongodb-memory-server` (изолированный in-memory MongoDB)
+- **Запуск**: `npm test` (устанавливает `NODE_ENV=test`, отключает rate limiting)
+- **Покрытие (26 тестов)**:
+  - **Auth** (4): регистрация, дубликат email, логин, неверный пароль
+  - **Testimonials CRUD** (6): create, list, get one, update, soft delete, доступ к чужим (403)
+  - **Status Transitions** (7): все 4 валидных перехода + 3 невалидных (draft→completed, recording→shared, shared→draft)
+  - **Bonus: Search** (3): текстовый поиск, фильтр по рейтингу, валидация min/max
+  - **Bonus: Bulk Status** (3): валидные переходы, невалидные переходы, несуществующие ID
+  - **Bonus: Export CSV** (3): базовый экспорт, выбор колонок, фильтр по статусу
+
 ---
 
 ## Отчёт о выполнении
@@ -579,11 +591,8 @@ curl -H "Authorization: Bearer $TOKEN" \
 | Метрика | Значение |
 |---------|----------|
 | **Затраченное время** | ~12 часов |
-| **Выполненные бонусные задачи** | 4 из 5 (Rate Limiting, Search, Bulk Status, Export CSV) |
-| **Тесты** | Заготовки созданы (`tests/`), требуют доработки setup |
-
-### Что планируется сделать (остальные бонусы)
-1. **Тесты** — полный набор Jest тестов: статус-транзишены, auth middleware, CRUD эндпоинты, бонусные эндпоинты, in-memory MongoDB.
+| **Выполненные бонусные задачи** | 5 из 5 (Rate Limiting, Search, Bulk Status, Export CSV, Tests) |
+| **Тесты** | 26 тестов (Mocha + Chai + Supertest + mongodb-memory-server) |
 
 ### Что можно улучшить в будущем
 - Атомарный счётчик `userId` (вместо `max+1`) для устранения гонок при одновременной регистрации.
