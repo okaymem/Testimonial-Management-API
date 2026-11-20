@@ -33,7 +33,7 @@ curl -H "Authorization: Bearer <TOKEN>" http://localhost:3000/api/testimonials
 | `JWT_SECRET` | Секрет для JWT | `change_me` | **Да** |
 | `JWT_EXPIRY` | TTL токена | `7d` | Нет |
 
-> В продакшене используйте сильную случайную строку для `JWT_SECRET`.
+
 
 Пример `.env`:
 ```env
@@ -161,6 +161,3 @@ Authorization: Bearer <token>
 
 ---
 
-## Лицензия
-
-ISC
