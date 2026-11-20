@@ -232,6 +232,56 @@ const analyticsQuerySchema = z
   })
   .strip();
 
+const exportQuerySchema = z
+  .object({
+    q: z.string({ invalid_type_error: "q must be a string" }).trim().optional(),
+    createdAfter: z
+      .string({ invalid_type_error: "createdAfter must be a string" })
+      .datetime({ message: "createdAfter must be a valid ISO date string" })
+      .optional(),
+    createdBefore: z
+      .string({ invalid_type_error: "createdBefore must be a string" })
+      .datetime({ message: "createdBefore must be a valid ISO date string" })
+      .optional(),
+    minRating: z.coerce
+      .number({ invalid_type_error: "minRating must be a number" })
+      .int("minRating must be an integer")
+      .min(1, "minRating must be between 1 and 5")
+      .max(5, "minRating must be between 1 and 5")
+      .optional(),
+    maxRating: z.coerce
+      .number({ invalid_type_error: "maxRating must be a number" })
+      .int("maxRating must be an integer")
+      .min(1, "maxRating must be between 1 and 5")
+      .max(5, "maxRating must be between 1 and 5")
+      .optional(),
+    status: z
+      .enum(TESTIMONIAL_STATUSES, {
+        invalid_enum_value: `status must be one of: ${TESTIMONIAL_STATUSES.join(", ")}`
+      })
+      .optional(),
+    fields: z.string({ invalid_type_error: "fields must be a string" }).trim().optional()
+  })
+  .strip()
+  .refine(
+    (data) => {
+      if (data.createdAfter && data.createdBefore) {
+        return new Date(data.createdAfter) <= new Date(data.createdBefore);
+      }
+      return true;
+    },
+    { message: "createdAfter must be before or equal to createdBefore", path: ["createdAfter"] }
+  )
+  .refine(
+    (data) => {
+      if (data.minRating && data.maxRating) {
+        return data.minRating <= data.maxRating;
+      }
+      return true;
+    },
+    { message: "minRating must be less than or equal to maxRating", path: ["minRating"] }
+  );
+
 module.exports = {
   createTestimonialSchema,
   updateTestimonialSchema,
@@ -240,6 +290,7 @@ module.exports = {
   listQuerySchema,
   searchQuerySchema,
   bulkStatusSchema,
+  exportQuerySchema,
   settingsSchema,
   analyticsQuerySchema,
   parseOrError

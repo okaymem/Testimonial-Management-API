@@ -10,6 +10,7 @@ const {
   listQuerySchema,
   searchQuerySchema,
   bulkStatusSchema,
+  exportQuerySchema,
   settingsSchema,
   analyticsQuerySchema,
   parseOrError
@@ -553,6 +554,85 @@ const getAnalytics = async (req, res) => {
   }
 };
 
+const exportTestimonials = async (req, res) => {
+  try {
+    const parsed = parseOrError(exportQuerySchema, req.query || {});
+    if (parsed.error) {
+      return sendError(res, { code: 400, message: parsed.error });
+    }
+
+    const { q, createdAfter, createdBefore, minRating, maxRating, status, fields } = parsed.data;
+
+    const filter = { userId: req.user.userId, isDeleted: false };
+
+    if (q && q.trim()) {
+      const regex = new RegExp(q.trim(), "i");
+      filter.$or = [
+        { customerName: regex },
+        { text: regex }
+      ];
+    }
+
+    if (createdAfter || createdBefore) {
+      filter.createdAt = {};
+      if (createdAfter) filter.createdAt.$gte = new Date(createdAfter);
+      if (createdBefore) filter.createdAt.$lte = new Date(createdBefore);
+    }
+
+    if (minRating || maxRating) {
+      filter.rating = {};
+      if (minRating) filter.rating.$gte = minRating;
+      if (maxRating) filter.rating.$lte = maxRating;
+    }
+
+    if (status) filter.status = status;
+
+    const allColumns = [
+      "testimonialId", "customerName", "customerEmail", "customerPhone",
+      "rating", "text", "status", "consentGiven", "sharedChannels",
+      "createdAt", "updatedAt"
+    ];
+    const columns = fields
+      ? fields.split(",").map((f) => f.trim()).filter((f) => allColumns.includes(f))
+      : allColumns;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="testimonials-${new Date().toISOString().split("T")[0]}.csv"`);
+
+    const { stringify } = require("csv-stringify");
+    const stringifier = stringify({ header: true, columns });
+    stringifier.pipe(res);
+
+    const cursor = Testimonial.find(filter).sort({ createdAt: -1 }).cursor();
+
+    for await (const doc of cursor) {
+      const row = {
+        testimonialId: doc.testimonialId,
+        customerName: doc.customerName,
+        customerEmail: doc.customerEmail || "",
+        customerPhone: doc.customerPhone || "",
+        rating: doc.rating != null ? String(doc.rating) : "",
+        text: doc.text || "",
+        status: doc.status,
+        consentGiven: doc.consentGiven === true ? "true" : "false",
+        sharedChannels: (doc.sharedChannels || []).join(";"),
+        createdAt: doc.createdAt.toISOString(),
+        updatedAt: doc.updatedAt.toISOString()
+      };
+      const filteredRow = {};
+      columns.forEach((c) => { filteredRow[c] = row[c]; });
+      stringifier.write(filteredRow);
+    }
+
+    stringifier.end();
+  } catch (error) {
+    console.error(error);
+    if (!res.headersSent) {
+      return sendError(res, { code: 500, message: "Failed to export testimonials" });
+    }
+  }
+};
+
 module.exports = {
   createTestimonial,
   listTestimonials,
@@ -565,5 +645,6 @@ module.exports = {
   shareTestimonial,
   getSettings,
   upsertSettings,
-  getAnalytics
+  getAnalytics,
+  exportTestimonials
 };

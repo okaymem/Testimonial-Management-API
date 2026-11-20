@@ -12,7 +12,8 @@ const {
   shareTestimonial,
   getSettings,
   upsertSettings,
-  getAnalytics
+  getAnalytics,
+  exportTestimonials
 } = require("../controllers/testimonialController");
 
 const router = express.Router();
@@ -26,6 +27,7 @@ router.get("/search", searchTestimonials);
 router.get("/settings", getSettings);
 router.post("/settings", upsertSettings);
 router.get("/analytics", getAnalytics);
+router.get("/export", exportTestimonials);
 
 router.patch("/:testimonialId/status", updateStatus);
 router.post("/bulk/status", bulkUpdateStatus);

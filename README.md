@@ -201,6 +201,7 @@ Authorization: Bearer <token>
 | GET | `/api/testimonials` | Список (query: status, page, limit, sort) → 200 + пагинация |
 | GET | `/api/testimonials/search` | Поиск (q, даты, рейтинг, пагинация) → 200 + пагинация |
 | POST | `/api/testimonials/bulk/status` | Массовая смена статуса (валидация переходов) → 200 + отчёт |
+| GET | `/api/testimonials/export` | Экспорт в CSV (фильтры как в поиске) → файл |
 | GET | `/api/testimonials/:id` | Получить один → 200 |
 | PUT | `/api/testimonials/:id` | Частичное обновление → 200 |
 | PATCH | `/api/testimonials/:id/status` | Смена статуса (строго: draft→recording→processing→completed→shared) → 200 |
@@ -376,6 +377,50 @@ draft → recording → processing → completed → shared
 - `status` — строго из энума статусов
 - Пустой массив или отсутствие полей → 400
 
+#### Export CSV
+**GET** `/api/testimonials/export`
+
+Возвращает CSV-файл с отзывами, подходящим для Excel / Google Sheets. Поддерживает те же фильтры, что и поиск.
+
+**Query параметры:**
+| Параметр | Тип | Описание |
+|----------|-----|----------|
+| `q` | string | Текстовый поиск по `customerName` и `text` (case-insensitive) |
+| `createdAfter` | string (ISO) | Фильтр: создано не раньше даты |
+| `createdBefore` | string (ISO) | Фильтр: создано не позже даты |
+| `minRating` | integer (1-5) | Минимальный рейтинг |
+| `maxRating` | integer (1-5) | Максимальный рейтинг |
+| `status` | string | Фильтр по статусу (один из: `draft`, `recording`, `processing`, `completed`, `shared`) |
+| `fields` | string | Колонки через запятую (опционально, по умолчанию все) |
+
+**Доступные колонки для `fields`:**
+`testimonialId`, `customerName`, `customerEmail`, `customerPhone`, `rating`, `text`, `status`, `consentGiven`, `sharedChannels`, `createdAt`, `updatedAt`
+
+**Пример запроса:**
+```
+GET /api/testimonials/export?status=completed&minRating=4&fields=testimonialId,customerName,rating,createdAt
+```
+
+**Ответ:** CSV-файл с заголовками, скачиваемый браузером.
+
+**Заголовки ответа:**
+```
+Content-Type: text/csv; charset=utf-8
+Content-Disposition: attachment; filename="testimonials-YYYY-MM-DD.csv"
+```
+
+**Пример curl:**
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/api/testimonials/export?status=completed&minRating=4" \
+  -o testimonials.csv
+```
+
+**Валидация:**
+- `createdAfter` не может быть больше `createdBefore`
+- `minRating` не может быть больше `maxRating`
+- `fields` — только из списка доступных колонок
+
 #### Share
 **POST** `/api/testimonials/:id/share`
 
@@ -516,7 +561,7 @@ draft → recording → processing → completed → shared
 | 1 | **Rate Limiting** на `/api/auth/*` (5 req/min/IP, 429 при превышении) | ✅ Выполнено |
 | 2 | Search (`GET /api/testimonials/search`) | ✅ Выполнено |
 | 3 | Bulk Status (`POST /api/testimonials/bulk/status`) | ✅ Выполнено |
-| 4 | Export CSV (`GET /api/testimonials/export`) | ⏳ Планируется |
+| 4 | Export CSV (`GET /api/testimonials/export`) | ✅ Выполнено |
 | 5 | Тесты (Jest + mongodb-memory-server) | ⏳ Планируется |
 
 ### Детали Rate Limiting (Бонус 1)
@@ -534,12 +579,11 @@ draft → recording → processing → completed → shared
 | Метрика | Значение |
 |---------|----------|
 | **Затраченное время** | ~12 часов |
-| **Выполненные бонусные задачи** | 3 из 5 (Rate Limiting, Search, Bulk Status) |
+| **Выполненные бонусные задачи** | 4 из 5 (Rate Limiting, Search, Bulk Status, Export CSV) |
 | **Тесты** | Заготовки созданы (`tests/`), требуют доработки setup |
 
 ### Что планируется сделать (остальные бонусы)
-1. **Export CSV** — `GET /api/testimonials/export` с заголовками, экранированием, фильтрами, `Content-Disposition: attachment`.
-2. **Тесты** — полный набор Jest тестов: статус-транзишены, auth middleware, CRUD эндпоинты, бонусные эндпоинты, in-memory MongoDB.
+1. **Тесты** — полный набор Jest тестов: статус-транзишены, auth middleware, CRUD эндпоинты, бонусные эндпоинты, in-memory MongoDB.
 
 ### Что можно улучшить в будущем
 - Атомарный счётчик `userId` (вместо `max+1`) для устранения гонок при одновременной регистрации.
