@@ -1,77 +1,39 @@
 # Testimonial Management API
 
-RESTful API для управления видео-отзывами (testimonials). Построен на Node.js, Express.js, MongoDB (Mongoose) с JWT-аутентификацией.
-
-## Содержание
-
-- [Установка и запуск](#установка-и-запуск)
-- [Переменные окружения](#переменные-окружения)
-- [Документация API](#документация-api)
-- [Архитектурные решения](#архитектурные-решения)
-- [Выполненные бонусные задачи](#выполненные-бонусные-задачи)
-- [Отчёт о выполнении](#отчёт-о-выполнении)
-
----
+RESTful API для управления видео-отзывами. Node.js, Express, MongoDB (Mongoose), JWT.
 
 ## Установка и запуск
 
-### Требования
-
-- Node.js v16+
-- Docker (для MongoDB) или локальный MongoDB
-- npm
-
-### Быстрый старт
+**Требования:** Node.js v16+, Docker, npm
 
 ```bash
-# 1. Клонирование репозитория
 git clone https://github.com/okaymem/Testimonial-Management-API.git
 cd Testimonial-Management-API
-
-# 2. Установка зависимостей
 npm install
-
-# 3. Настройка переменных окружения
 cp .env.example .env
-# Отредактируйте .env при необходимости
-
-# 4. Запуск MongoDB через Docker
 docker compose up -d
-
-# 5. Запуск сервера
-# Режим разработки (с автоперезагрузкой)
-npm run dev
-
-# Продакшн
-npm start
+npm run dev      # разработка
+npm start        # продакшн
 ```
 
-API будет доступен по адресу `http://localhost:3000` (или порт из `.env`).
+API: `http://localhost:3000`
 
-### Проверка работоспособности
-
+**Проверка:**
 ```bash
-# Получить токен
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"your@email.com","password":"yourpassword"}'
-
-# Проверить эндпоинт (требует токен)
+curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d '{"email":"your@email.com","password":"yourpassword"}'
 curl -H "Authorization: Bearer <TOKEN>" http://localhost:3000/api/testimonials
 ```
 
----
-
 ## Переменные окружения
 
-| Переменная | Описание | Значение по умолчанию | Обязательная |
-|------------|----------|----------------------|--------------|
+| Переменная | Описание | По умолчанию | Обязательная |
+|------------|----------|--------------|--------------|
 | `PORT` | Порт сервера | `3000` | Нет |
-| `MONGODB_URI` | Строка подключения к MongoDB | `mongodb://127.0.0.1:27017/testimonials` | Да |
-| `JWT_SECRET` | Секрет для подписи JWT | `change_me` | Да |
-| `JWT_EXPIRY` | Время жизни токена | `7d` | Нет |
+| `MONGODB_URI` | MongoDB connection string | `mongodb://127.0.0.1:27017/testimonials` | Да |
+| `JWT_SECRET` | Секрет для JWT | `change_me` | **Да** |
+| `JWT_EXPIRY` | TTL токена | `7d` | Нет |
 
-**Важно:** В продакшене всегда используйте сильную случайную строку для `JWT_SECRET`.
+> В продакшене используйте сильную случайную строку для `JWT_SECRET`.
 
 Пример `.env`:
 ```env
@@ -81,45 +43,16 @@ JWT_SECRET=your-super-secret-random-string-here
 JWT_EXPIRY=7d
 ```
 
----
-
 ## Документация API
 
 ### Формат ответов
+**Успех:** `{ "code": 200, "status": "success", "message": "...", "data": {} }`  
+**Ошибка:** `{ "code": 400, "status": "failure", "message": "..." }`
 
-**Успех:**
-```json
-{
-  "code": 200,
-  "status": "success",
-  "message": "Описание результата",
-  "data": {}
-}
-```
-
-**Ошибка:**
-```json
-{
-  "code": 400,
-  "status": "failure",
-  "message": "Описание ошибки"
-}
-```
-
-### HTTP статус-коды
-
-- `200` — Успех
-- `201` — Создано
-- `400` — Неверный запрос / ошибка валидации
-- `401` — Не авторизован (нет/невалидный токен)
-- `403` — Запрещено (доступ к чужим данным)
-- `404` — Не найдено
-- `429` — Слишком много запросов (rate limit)
-- `500` — Внутренняя ошибка сервера
+### HTTP коды
+`200` успех, `201` создано, `400` валидация, `401` нет токена, `403` чужой доступ, `404` не найдено, `429` rate limit, `500` сервер
 
 ### Аутентификация
-
-Все эндпоинты, кроме `/api/auth/*`, требуют JWT:
 ```
 Authorization: Bearer <token>
 ```
@@ -130,317 +63,37 @@ Authorization: Bearer <token>
 
 | Метод | Эндпоинт | Описание |
 |-------|----------|----------|
-| POST | `/api/auth/register` | Регистрация (email, password, businessName) → 201 + user + token |
+| POST | `/api/auth/register` | Регистрация → 201 + user + token |
 | POST | `/api/auth/login` | Вход → 200 + token |
 
-#### Register
-**POST** `/api/auth/register`
-
-**Запрос:**
-```json
-{
-  "email": "owner@business.com",
-  "password": "securePassword123",
-  "businessName": "My Business"
-}
-```
-
-**Ответ (201):**
-```json
-{
-  "code": 201,
-  "status": "success",
-  "message": "User registered successfully",
-  "data": {
-    "user": {
-      "userId": 1,
-      "email": "owner@business.com",
-      "businessName": "My Business",
-      "role": "owner",
-      "isActive": true,
-      "createdAt": "2026-11-19T10:00:00.000Z",
-      "updatedAt": "2026-11-19T10:00:00.000Z"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-#### Login
-**POST** `/api/auth/login`
-
-**Запрос:**
-```json
-{
-  "email": "owner@business.com",
-  "password": "securePassword123"
-}
-```
-
-**Ответ (200):**
-```json
-{
-  "code": 200,
-  "status": "success",
-  "message": "Login successful",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
+**Register** — body: `email`, `password`, `businessName`  
+**Login** — body: `email`, `password`
 
 ---
 
-### Testimonials (требуют JWT)
-
-Все эндпоинты возвращают 403 при попытке доступа к чужим данным. Мягко удалённые (`isDeleted: true`) исключаются из списков и аналитики.
+### Testimonials (JWT)
 
 | Метод | Эндпоинт | Описание |
 |-------|----------|----------|
-| POST | `/api/testimonials` | Создание (требуется `customerName`) → 201 |
-| GET | `/api/testimonials` | Список (query: status, page, limit, sort) → 200 + пагинация |
-| GET | `/api/testimonials/search` | Поиск (q, даты, рейтинг, пагинация) → 200 + пагинация |
-| POST | `/api/testimonials/bulk/status` | Массовая смена статуса (валидация переходов) → 200 + отчёт |
-| GET | `/api/testimonials/export` | Экспорт в CSV (фильтры как в поиске) → файл |
+| POST | `/api/testimonials` | Создать (требуется `customerName`) → 201 |
+| GET | `/api/testimonials` | Список (status, page, limit, sort) → 200 + пагинация |
+| GET | `/api/testimonials/search` | Поиск (q, даты, рейтинг) → 200 + пагинация |
+| POST | `/api/testimonials/bulk/status` | Массовая смена статуса → 200 + отчёт |
+| GET | `/api/testimonials/export` | Экспорт CSV → файл |
 | GET | `/api/testimonials/:id` | Получить один → 200 |
 | PUT | `/api/testimonials/:id` | Частичное обновление → 200 |
-| PATCH | `/api/testimonials/:id/status` | Смена статуса (строго: draft→recording→processing→completed→shared) → 200 |
+| PATCH | `/api/testimonials/:id/status` | Смена статуса (draft→recording→processing→completed→shared) → 200 |
 | POST | `/api/testimonials/:id/share` | Шаринг (channels: email/sms/facebook/instagram) → 200 |
-| DELETE | `/api/testimonials/:id` | Мягкое удаление (isDeleted=true) → 200 |
+| DELETE | `/api/testimonials/:id` | Мягкое удаление → 200 |
 
-#### Create
-**POST** `/api/testimonials`
-
-**Запрос:**
-```json
-{
-  "customerName": "John Doe",
-  "customerEmail": "john@example.com",
-  "customerPhone": "+1234567890",
-  "videoUrl": "https://example.com/video.mp4",
-  "rating": 5,
-  "text": "Amazing service!",
-  "consentGiven": true
-}
-```
-
-**Ответ (201):**
-```json
-{
-  "code": 201,
-  "status": "success",
-  "message": "Testimonial created successfully",
-  "data": {
-    "testimonialId": "uuid-v4-string",
-    "userId": 1,
-    "customerName": "John Doe",
-    "status": "draft",
-    "consentGiven": false,
-    "sharedChannels": [],
-    "isDeleted": false,
-    "createdAt": "2026-11-19T10:00:00.000Z",
-    "updatedAt": "2026-11-19T10:00:00.000Z"
-  }
-}
-```
-
-Обязательно только `customerName`. Дефолты: `status: "draft"`, `consentGiven: false`, `sharedChannels: []`, `isDeleted: false`.
-
-#### List
-**GET** `/api/testimonials`
-
-**Query параметры:**
-| Параметр | Тип | Дефолт | Описание |
-|----------|-----|--------|----------|
-| `status` | string | — | Фильтр по статусу |
-| `page` | integer | `1` | Номер страницы |
-| `limit` | integer | `10` | Элементов на странице |
-| `sort` | string | `createdAt` | Поле сортировки (префикс `-` для DESC) |
-
-**Ответ (200):**
-```json
-{
-  "code": 200,
-  "status": "success",
-  "message": "Data retrieved successfully",
-  "data": [...],
-  "pagination": {
-    "total": 25,
-    "page": 1,
-    "limit": 10,
-    "pages": 3
-  }
-}
-```
-
-#### Search
-**GET** `/api/testimonials/search`
-
-**Query параметры:**
-| Параметр | Тип | Дефолт | Описание |
-|----------|-----|--------|----------|
-| `q` | string | — | Текстовый поиск по `customerName` и `text` (case-insensitive, частичное совпадение) |
-| `createdAfter` | string (ISO) | — | Фильтр: создано не раньше даты |
-| `createdBefore` | string (ISO) | — | Фильтр: создано не позже даты |
-| `minRating` | integer (1-5) | — | Минимальный рейтинг |
-| `maxRating` | integer (1-5) | — | Максимальный рейтинг |
-| `page` | integer | `1` | Номер страницы |
-| `limit` | integer | `10` | Элементов на странице |
-| `sort` | string | `createdAt` | Поле сортировки (префикс `-` для DESC) |
-
-**Пример запроса:**
-```
-GET /api/testimonials/search?q=john&minRating=4&createdAfter=2025-01-01T00:00:00.000Z&page=1&limit=5
-```
-
-**Ответ (200):**
-```json
-{
-  "code": 200,
-  "status": "success",
-  "message": "Data retrieved successfully",
-  "data": [...],
-  "pagination": {
-    "total": 3,
-    "page": 1,
-    "limit": 5,
-    "pages": 1
-  }
-}
-```
-
-**Валидация:**
-- `createdAfter` не может быть больше `createdBefore`
-- `minRating` не может быть больше `maxRating`
-- `q` — опциональный, если не указан — поиск не применяется
-
-#### Update Status
-**PATCH** `/api/testimonials/:id/status`
-
-**Запрос:**
-```json
-{ "status": "recording" }
-```
-
-**Допустимые переходы (строго):**
-```
-draft → recording → processing → completed → shared
-```
-
-Невалидный переход → 400 с сообщением `"Cannot transition from <from> to <to>"`. При переходе в `shared` устанавливается `sharedAt`.
-
-#### Bulk Status Update
-**POST** `/api/testimonials/bulk/status`
-
-**Запрос:**
-```json
-{
-  "testimonialIds": ["uuid-1", "uuid-2", "uuid-3"],
-  "status": "completed"
-}
-```
-
-**Параметры:**
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `testimonialIds` | string[] | Да | Массив ID отзывов (минимум 1) |
-| `status` | string | Да | Целевой статус (один из: `draft`, `recording`, `processing`, `completed`, `shared`) |
-
-**Поведение:**
-- Для каждого ID проверяется владение (userId) и существование (не soft-deleted)
-- Валидируется переход статуса по тем же правилам, что и для одиночного обновления (`STATUS_TRANSITIONS`)
-- Если переход недопустим — ID попадает в `failed` с описанием ошибки
-- Несуществующие/чужые ID попадают в `failed` с сообщением `"Testimonial not found or access forbidden"`
-- Успешно обновлённые ID возвращаются в `updated`
-
-**Ответ (200):**
-```json
-{
-  "code": 200,
-  "status": "success",
-  "message": "Bulk status update completed",
-  "data": {
-    "updated": ["uuid-1", "uuid-2"],
-    "failed": ["uuid-3"],
-    "errors": [
-      {
-        "testimonialId": "uuid-3",
-        "message": "Cannot transition from draft to completed"
-      }
-    ]
-  }
-}
-```
-
-**Валидация:**
-- `testimonialIds` — массив строк, минимум 1 элемент
-- `status` — строго из энума статусов
-- Пустой массив или отсутствие полей → 400
-
-#### Export CSV
-**GET** `/api/testimonials/export`
-
-Возвращает CSV-файл с отзывами, подходящим для Excel / Google Sheets. Поддерживает те же фильтры, что и поиск.
-
-**Query параметры:**
-| Параметр | Тип | Описание |
-|----------|-----|----------|
-| `q` | string | Текстовый поиск по `customerName` и `text` (case-insensitive) |
-| `createdAfter` | string (ISO) | Фильтр: создано не раньше даты |
-| `createdBefore` | string (ISO) | Фильтр: создано не позже даты |
-| `minRating` | integer (1-5) | Минимальный рейтинг |
-| `maxRating` | integer (1-5) | Максимальный рейтинг |
-| `status` | string | Фильтр по статусу (один из: `draft`, `recording`, `processing`, `completed`, `shared`) |
-| `fields` | string | Колонки через запятую (опционально, по умолчанию все) |
-
-**Доступные колонки для `fields`:**
-`testimonialId`, `customerName`, `customerEmail`, `customerPhone`, `rating`, `text`, `status`, `consentGiven`, `sharedChannels`, `createdAt`, `updatedAt`
-
-**Пример запроса:**
-```
-GET /api/testimonials/export?status=completed&minRating=4&fields=testimonialId,customerName,rating,createdAt
-```
-
-**Ответ:** CSV-файл с заголовками, скачиваемый браузером.
-
-**Заголовки ответа:**
-```
-Content-Type: text/csv; charset=utf-8
-Content-Disposition: attachment; filename="testimonials-YYYY-MM-DD.csv"
-```
-
-**Пример curl:**
-```bash
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:3000/api/testimonials/export?status=completed&minRating=4" \
-  -o testimonials.csv
-```
-
-**Валидация:**
-- `createdAfter` не может быть больше `createdBefore`
-- `minRating` не может быть больше `maxRating`
-- `fields` — только из списка доступных колонок
-
-#### Share
-**POST** `/api/testimonials/:id/share`
-
-**Запрос:**
-```json
-{ "channels": ["email", "facebook"] }
-```
-
-**Допустимые каналы:** `email`, `sms`, `facebook`, `instagram`
-
-Поведение:
-- Добавляет каналы в `sharedChannels` (без дублей)
-- Если статус `completed` → автопереход в `shared` и установка `sharedAt`
-- Если статус `shared` → добавляет каналы
-- Если статус `draft`/`recording`/`processing` → 400
-
-#### Soft Delete
-**DELETE** `/api/testimonials/:id`
-
-Устанавливает `isDeleted: true`, `deletedAt`. Документ остаётся в БД. Исключается из списков/аналитики. Идемпотентен (повторный вызов → 200).
+**Create** — body: `customerName` (обязательно), `customerEmail`, `customerPhone`, `videoUrl`, `rating` (1-5), `text`, `consentGiven`  
+**List** — query: `status`, `page=1`, `limit=10`, `sort=createdAt`  
+**Search** — query: `q`, `createdAfter`, `createdBefore`, `minRating`, `maxRating`, `page`, `limit`, `sort`  
+**Bulk Status** — body: `{ "testimonialIds": ["id1","id2"], "status": "completed" }` → `{ updated, failed, errors }`  
+**Export CSV** — query: как у search + `fields` (колонки через запятую) → `Content-Type: text/csv`, `Content-Disposition: attachment`  
+**Status** — body: `{ "status": "recording" }` — строгие переходы, невалидный → 400  
+**Share** — body: `{ "channels": ["email","facebook"] }` — 400 если статус draft/recording/processing  
+**Delete** — soft delete (`isDeleted=true`), идемпотентен
 
 ---
 
@@ -448,109 +101,32 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 | Метод | Эндпоинт | Описание |
 |-------|----------|----------|
-| GET | `/api/testimonials/settings` | Получить настройки (null если нет) → 200 |
-| POST | `/api/testimonials/settings` | Upsert частичный (только переданные поля) → 200 |
+| GET | `/api/testimonials/settings` | Получить настройки → 200 |
+| POST | `/api/testimonials/settings` | Upsert (частичный) → 200 |
 
-**Настраиваемые поля:**
-- `isEnabled` (boolean, дефолт: `false`)
-- `defaultVideoLength` (number, дефолт: `10`)
-- `videoLengthOptions` (number[], дефолт: `[5,10,15,20,25]`)
-- `questionnaire` (string[], дефолт: `["What do you like about our service?"]`)
-- `sendingOptions` (string[], дефолт: `["email","sms"]`)
-- `thankYouMessage` (string, дефолт: `"Thank you!"`)
-- `contactConsent` (object): `{ enabled: boolean (default: true), text: string (default: "Join our mailing list") }`
+Поля: `isEnabled`, `defaultVideoLength`, `videoLengthOptions`, `questionnaire`, `sendingOptions`, `thankYouMessage`, `contactConsent`
 
 ---
 
 ### Analytics (JWT)
 
-| Метод | Эндпоинт | Описание |
-|-------|----------|----------|
-| GET | `/api/testimonials/analytics` | Query: startDate, endDate (ISO) → 200 с `overview {total, byStatus, averageRating}` и `period` |
-
-**Ответ (200):**
-```json
-{
-  "code": 200,
-  "status": "success",
-  "message": "Data retrieved successfully",
-  "data": {
-    "overview": {
-      "total": 50,
-      "byStatus": {
-        "draft": 5,
-        "recording": 3,
-        "processing": 2,
-        "completed": 25,
-        "shared": 15
-      },
-      "averageRating": 4.2
-    },
-    "period": {
-      "startDate": "2025-01-01T00:00:00.000Z",
-      "endDate": "2025-12-31T23:59:59.999Z"
-    }
-  }
-}
-```
-
-- Исключает мягко удалённые
-- `byStatus` — счетчики для всех 5 статусов
-- `averageRating` — среднее по не-null рейтингам, округлено до 2 знаков
-- Агрегация через `$facet` за один запрос к БД
+**GET** `/api/testimonials/analytics?startDate=...&endDate=...` → `{ overview: { total, byStatus, averageRating }, period }`
 
 ---
 
 ## Архитектурные решения
 
-### 1. Технологический стек
-- **Node.js + Express**: лёгкий, зрелый, соответствует ТЗ.
-- **MongoDB + Mongoose**: документная БД подходит для вложенных структур (`sharedChannels`, `contactConsent`); Mongoose даёт схемы, дефолты, валидацию.
-- **JWT (stateless)**: без сессий на сервере, масштабируется горизонтально. Payload: `userId`, `email`.
-- **CommonJS (`require`)**: по ТЗ, без TypeScript.
-
-### 2. Модели данных
-- **User**: автоинкремент `userId` (Number) вместо `ObjectId` — по ТЗ. Уникальный индекс на `email`.
-- **Testimonial**: `testimonialId` — UUID v4 для публичного шаринга. `userId` — Number (FK-like ссылка на User). Статусы/энумы на уровне схемы. Soft delete через `isDeleted` + `deletedAt`.
-- **TestimonialSettings**: один документ на пользователя (`userId` unique). Вложенный `contactConsent` с `_id: false`. Дефолты в схеме.
-
-### 3. Индексы
-По ТЗ: `testimonialId` (unique), `userId`, `status`, составной `{userId: 1, isDeleted: 1}` для типичных запросов «мои не удалённые».
-
-### 4. Аутентификация и авторизация
-- **Middleware**: извлекает `Bearer` токен, верифицирует по `JWT_SECRET`, кладёт в `req.user = {userId, email}`.
-- **Проверка владельца**: каждая операция с отзывом/настройками проверяет `testimonial.userId === req.user.userId` → 403 при несовпадении.
-- Токен не хранится на сервере — клиент получает в JSON и передаёт в заголовке.
-
-### 5. Валидация
-- **Zod** для тела/квери: типизированная, понятные сообщения, строгие энумы.
-- **Mongoose** как второй слой: границы рейтинга, обязательные поля, энумы.
-- Ошибки в едином формате с указанием поля (например, `"rating: rating must be between 1 and 5"`).
-
-### 6. Обработка ошибок
-- Try/catch во всех контроллерах.
-- Централизованный middleware в `app.js`: мапит ошибки Mongoose (`ValidationError`, `CastError`, дубль `11000`) в 400 с читаемыми сообщениями.
-- Никаких stack trace в ответах; логи в консоль.
-
-### 7. Переходы статусов
-Строгий линейный workflow через `STATUS_TRANSITIONS` map. Запрещены прыжки (например, `draft → completed`). Автоустановка `sharedAt` при входе в `shared`.
-
-### 8. Soft Delete
-Документы никогда не удаляются физически. `isDeleted: true` + `deletedAt`. Все чтения фильтруют `isDeleted: false`.
-
-### 9. Аналитика через агрегацию
-Один `aggregate()` с `$facet` считает `total`, `byStatus`, `averageRating` за один проход. Фильтры по пользователю, датам, `isDeleted: false`.
-
-### 10. Структура проекта
-```
-/controllers    — хендлеры (auth, testimonials)
-/models         — Mongoose-схемы
-/routes         — Express-роутеры
-/middleware     — auth middleware
-/lib            — константы и хелперы ответов
-/app.js         — точка входа, подключение к БД, error handlers
-/tests          — Jest + mongodb-memory-server (заготовки)
-```
+- **Стек:** Node.js + Express, MongoDB + Mongoose, JWT stateless, CommonJS — по ТЗ
+- **Модели:** User (автоинкремент `userId`), Testimonial (UUID `testimonialId`, soft delete), Settings (один на пользователя)
+- **Индексы:** `testimonialId` (unique), `userId`, `status`, составной `{userId, isDeleted}`
+- **Auth:** Middleware проверяет Bearer токен → `req.user`, 401 если нет/невалиден
+- **Owner check:** каждая операция проверяет `testimonial.userId === req.user.userId` → 403
+- **Валидация:** Zod (body/query) + Mongoose (schema) — строгие энумы, диапазоны, cross-field refine
+- **Ошибки:** try/catch в контроллерах, централизованный middleware мапит Mongoose ошибки в 400, никаких stack trace
+- **Статусы:** линейный workflow через `STATUS_TRANSITIONS`, авто `sharedAt`
+- **Soft delete:** `isDeleted=true` + `deletedAt`, фильтруется везде
+- **Аналитика:** один `$facet` агрегация за запрос
+- **Структура:** `/controllers`, `/models`, `/routes`, `/middleware`, `/lib`, `/tests`, `app.js`
 
 ---
 
@@ -558,31 +134,11 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 | № | Задача | Статус |
 |---|--------|--------|
-| 1 | **Rate Limiting** на `/api/auth/*` (5 req/min/IP, 429 при превышении) | ✅ Выполнено |
-| 2 | Search (`GET /api/testimonials/search`) | ✅ Выполнено |
-| 3 | Bulk Status (`POST /api/testimonials/bulk/status`) | ✅ Выполнено |
-| 4 | Export CSV (`GET /api/testimonials/export`) | ✅ Выполнено |
-| 5 | Тесты (Mocha + mongodb-memory-server) | ✅ Выполнено |
-
-### Детали Rate Limiting (Бонус 1)
-- Библиотека: `express-rate-limit`
-- Окно: 1 минута (`windowMs: 60000`)
-- Лимит: 5 запросов с одного IP (`max: 5`)
-- Применяется ко всем `/api/auth/*` (register, login)
-- Ответ при превышении: `429` с JSON `{ "code": 429, "status": "failure", "message": "Too many requests, please try again later" }`
-- Заголовки: `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
-
-### Детали тестов (Бонус 5)
-- **Фреймворк**: Mocha + Chai + Supertest
-- **БД для тестов**: `mongodb-memory-server` (изолированный in-memory MongoDB)
-- **Запуск**: `npm test` (устанавливает `NODE_ENV=test`, отключает rate limiting)
-- **Покрытие (26 тестов)**:
-  - **Auth** (4): регистрация, дубликат email, логин, неверный пароль
-  - **Testimonials CRUD** (6): create, list, get one, update, soft delete, доступ к чужим (403)
-  - **Status Transitions** (7): все 4 валидных перехода + 3 невалидных (draft→completed, recording→shared, shared→draft)
-  - **Bonus: Search** (3): текстовый поиск, фильтр по рейтингу, валидация min/max
-  - **Bonus: Bulk Status** (3): валидные переходы, невалидные переходы, несуществующие ID
-  - **Bonus: Export CSV** (3): базовый экспорт, выбор колонок, фильтр по статусу
+| 1 | Rate Limiting на `/api/auth/*` (5 req/min/IP) | ✅ |
+| 2 | Search (`GET /api/testimonials/search`) | ✅ |
+| 3 | Bulk Status (`POST /api/testimonials/bulk/status`) | ✅ |
+| 4 | Export CSV (`GET /api/testimonials/export`) | ✅ |
+| 5 | Тесты (Mocha + mongodb-memory-server) | ✅ |
 
 ---
 
@@ -591,15 +147,17 @@ curl -H "Authorization: Bearer $TOKEN" \
 | Метрика | Значение |
 |---------|----------|
 | **Затраченное время** | ~12 часов |
-| **Выполненные бонусные задачи** | 5 из 5 (Rate Limiting, Search, Bulk Status, Export CSV, Tests) |
+| **Выполненные бонусные задачи** | 5 из 5 |
 | **Тесты** | 26 тестов (Mocha + Chai + Supertest + mongodb-memory-server) |
 
-### Что можно улучшить в будущем
-- Атомарный счётчик `userId` (вместо `max+1`) для устранения гонок при одновременной регистрации.
-- Rate limiting на остальные эндпоинты, helmet, структурированное логирование (Winston/Pino).
-- Версионирование API (`/api/v1/`), Swagger/OpenAPI документация.
-- Dockerfile для API, docker-compose для полного стека.
-- Refresh-токены с ротацией, вебхуки при смене статуса, курсорная пагинация.
+---
+
+## Что улучшит при большем времени (3-4 пункта)
+
+1. Атомарный счётчик `userId` вместо `max+1` — убрать гонки при регистрации
+2. Rate limiting на остальные эндпоинты, helmet, структурированное логирование (Pino)
+3. Версионирование API (`/api/v1/`), OpenAPI/Swagger документация
+4. Dockerfile для API, docker-compose для полного стека
 
 ---
 
