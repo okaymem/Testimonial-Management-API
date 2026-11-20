@@ -162,6 +162,22 @@ const searchQuerySchema = z
     { message: "minRating must be less than or equal to maxRating", path: ["minRating"] }
   );
 
+const bulkStatusSchema = z
+  .object({
+    testimonialIds: z
+      .array(z.string({ invalid_type_error: "testimonialIds must be strings" }), {
+        required_error: "testimonialIds is required",
+        invalid_type_error: "testimonialIds must be an array"
+      })
+      .min(1, "testimonialIds must contain at least one id"),
+    status: z.enum(TESTIMONIAL_STATUSES, {
+      required_error: "status is required",
+      invalid_type_error: "status must be a string",
+      invalid_enum_value: `status must be one of: ${TESTIMONIAL_STATUSES.join(", ")}`
+    })
+  })
+  .strip();
+
 const contactConsentSchema = z
   .object({
     enabled: z.boolean({ invalid_type_error: "contactConsent.enabled must be a boolean" }).optional(),
@@ -223,6 +239,7 @@ module.exports = {
   shareSchema,
   listQuerySchema,
   searchQuerySchema,
+  bulkStatusSchema,
   settingsSchema,
   analyticsQuerySchema,
   parseOrError

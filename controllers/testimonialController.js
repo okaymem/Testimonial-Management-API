@@ -9,6 +9,7 @@ const {
   shareSchema,
   listQuerySchema,
   searchQuerySchema,
+  bulkStatusSchema,
   settingsSchema,
   analyticsQuerySchema,
   parseOrError
@@ -265,6 +266,74 @@ const updateStatus = async (req, res) => {
   }
 };
 
+const bulkUpdateStatus = async (req, res) => {
+  try {
+    const parsed = parseOrError(bulkStatusSchema, req.body || {});
+    if (parsed.error) {
+      return sendError(res, { code: 400, message: parsed.error });
+    }
+
+    const { testimonialIds, status: nextStatus } = parsed.data;
+    const userId = req.user.userId;
+
+    const testimonials = await Testimonial.find({
+      testimonialId: { $in: testimonialIds },
+      userId,
+      isDeleted: false
+    });
+
+    const foundIds = new Set(testimonials.map((t) => t.testimonialId));
+    const notFound = testimonialIds.filter((id) => !foundIds.has(id));
+
+    const updated = [];
+    const failed = [];
+    const errors = [];
+
+    for (const testimonial of testimonials) {
+      const currentStatus = testimonial.status;
+      const allowed = STATUS_TRANSITIONS[currentStatus] || [];
+
+      if (!allowed.includes(nextStatus)) {
+        failed.push(testimonial.testimonialId);
+        errors.push({
+          testimonialId: testimonial.testimonialId,
+          message: `Cannot transition from ${currentStatus} to ${nextStatus}`
+        });
+        continue;
+      }
+
+      testimonial.status = nextStatus;
+      if (nextStatus === "shared") {
+        testimonial.sharedAt = new Date();
+      }
+
+      await testimonial.save();
+      updated.push(testimonial.testimonialId);
+    }
+
+    for (const id of notFound) {
+      failed.push(id);
+      errors.push({
+        testimonialId: id,
+        message: "Testimonial not found or access forbidden"
+      });
+    }
+
+    return sendSuccess(res, {
+      code: 200,
+      message: "Bulk status update completed",
+      data: {
+        updated,
+        failed,
+        errors
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    return sendError(res, { code: 500, message: "Failed to bulk update status" });
+  }
+};
+
 const deleteTestimonial = async (req, res) => {
   try {
     const { testimonialId } = req.params;
@@ -491,6 +560,7 @@ module.exports = {
   getTestimonial,
   updateTestimonial,
   updateStatus,
+  bulkUpdateStatus,
   deleteTestimonial,
   shareTestimonial,
   getSettings,

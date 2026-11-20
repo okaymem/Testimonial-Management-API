@@ -7,6 +7,7 @@ const {
   getTestimonial,
   updateTestimonial,
   updateStatus,
+  bulkUpdateStatus,
   deleteTestimonial,
   shareTestimonial,
   getSettings,
@@ -27,6 +28,7 @@ router.post("/settings", upsertSettings);
 router.get("/analytics", getAnalytics);
 
 router.patch("/:testimonialId/status", updateStatus);
+router.post("/bulk/status", bulkUpdateStatus);
 router.post("/:testimonialId/share", shareTestimonial);
 
 router.get("/:testimonialId", getTestimonial);

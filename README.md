@@ -200,6 +200,7 @@ Authorization: Bearer <token>
 | POST | `/api/testimonials` | Создание (требуется `customerName`) → 201 |
 | GET | `/api/testimonials` | Список (query: status, page, limit, sort) → 200 + пагинация |
 | GET | `/api/testimonials/search` | Поиск (q, даты, рейтинг, пагинация) → 200 + пагинация |
+| POST | `/api/testimonials/bulk/status` | Массовая смена статуса (валидация переходов) → 200 + отчёт |
 | GET | `/api/testimonials/:id` | Получить один → 200 |
 | PUT | `/api/testimonials/:id` | Частичное обновление → 200 |
 | PATCH | `/api/testimonials/:id/status` | Смена статуса (строго: draft→recording→processing→completed→shared) → 200 |
@@ -326,6 +327,54 @@ draft → recording → processing → completed → shared
 ```
 
 Невалидный переход → 400 с сообщением `"Cannot transition from <from> to <to>"`. При переходе в `shared` устанавливается `sharedAt`.
+
+#### Bulk Status Update
+**POST** `/api/testimonials/bulk/status`
+
+**Запрос:**
+```json
+{
+  "testimonialIds": ["uuid-1", "uuid-2", "uuid-3"],
+  "status": "completed"
+}
+```
+
+**Параметры:**
+| Поле | Тип | Обязательное | Описание |
+|------|-----|--------------|----------|
+| `testimonialIds` | string[] | Да | Массив ID отзывов (минимум 1) |
+| `status` | string | Да | Целевой статус (один из: `draft`, `recording`, `processing`, `completed`, `shared`) |
+
+**Поведение:**
+- Для каждого ID проверяется владение (userId) и существование (не soft-deleted)
+- Валидируется переход статуса по тем же правилам, что и для одиночного обновления (`STATUS_TRANSITIONS`)
+- Если переход недопустим — ID попадает в `failed` с описанием ошибки
+- Несуществующие/чужые ID попадают в `failed` с сообщением `"Testimonial not found or access forbidden"`
+- Успешно обновлённые ID возвращаются в `updated`
+
+**Ответ (200):**
+```json
+{
+  "code": 200,
+  "status": "success",
+  "message": "Bulk status update completed",
+  "data": {
+    "updated": ["uuid-1", "uuid-2"],
+    "failed": ["uuid-3"],
+    "errors": [
+      {
+        "testimonialId": "uuid-3",
+        "message": "Cannot transition from draft to completed"
+      }
+    ]
+  }
+}
+```
+
+**Валидация:**
+- `testimonialIds` — массив строк, минимум 1 элемент
+- `status` — строго из энума статусов
+- Пустой массив или отсутствие полей → 400
 
 #### Share
 **POST** `/api/testimonials/:id/share`
@@ -466,7 +515,7 @@ draft → recording → processing → completed → shared
 |---|--------|--------|
 | 1 | **Rate Limiting** на `/api/auth/*` (5 req/min/IP, 429 при превышении) | ✅ Выполнено |
 | 2 | Search (`GET /api/testimonials/search`) | ✅ Выполнено |
-| 3 | Bulk Status (`POST /api/testimonials/bulk/status`) | ⏳ Планируется |
+| 3 | Bulk Status (`POST /api/testimonials/bulk/status`) | ✅ Выполнено |
 | 4 | Export CSV (`GET /api/testimonials/export`) | ⏳ Планируется |
 | 5 | Тесты (Jest + mongodb-memory-server) | ⏳ Планируется |
 
@@ -485,13 +534,12 @@ draft → recording → processing → completed → shared
 | Метрика | Значение |
 |---------|----------|
 | **Затраченное время** | ~12 часов |
-| **Выполненные бонусные задачи** | 2 из 5 (Rate Limiting, Search) |
+| **Выполненные бонусные задачи** | 3 из 5 (Rate Limiting, Search, Bulk Status) |
 | **Тесты** | Заготовки созданы (`tests/`), требуют доработки setup |
 
 ### Что планируется сделать (остальные бонусы)
-1. **Bulk Status** — `POST /api/testimonials/bulk/status` с валидацией переходов для каждого ID и отчётом `{updated, failed, errors}`.
-2. **Export CSV** — `GET /api/testimonials/export` с заголовками, экранированием, фильтрами, `Content-Disposition: attachment`.
-3. **Тесты** — полный набор Jest тестов: статус-транзишены, auth middleware, CRUD эндпоинты, бонусные эндпоинты, in-memory MongoDB.
+1. **Export CSV** — `GET /api/testimonials/export` с заголовками, экранированием, фильтрами, `Content-Disposition: attachment`.
+2. **Тесты** — полный набор Jest тестов: статус-транзишены, auth middleware, CRUD эндпоинты, бонусные эндпоинты, in-memory MongoDB.
 
 ### Что можно улучшить в будущем
 - Атомарный счётчик `userId` (вместо `max+1`) для устранения гонок при одновременной регистрации.
